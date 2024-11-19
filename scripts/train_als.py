@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -8,9 +9,20 @@ from models.recommender_system import RecommenderSystem
 
 USER_ARTISTS_PATH = './data/user_artists.dat'
 ARTISTS_PATH = './data/artists.dat'
-MODEL_PATH = './models/als_model.pkl'
 
-def main():
+def parse_cli():
+    parser = argparse.ArgumentParser(
+        description="Generate recommendations for a user"
+    )
+    parser.add_argument(
+        'model',
+        type=str,
+        help="The name of the model to use"
+    )
+
+    return parser.parse_args()
+
+def main(model):
     recommender = RecommenderSystem()
 
     # Load data
@@ -22,10 +34,11 @@ def main():
     recommender.train()
 
     # Save the trained model
-    print(f"Saving model to {MODEL_PATH}...")
-    recommender.save_model(MODEL_PATH)
+    print(f"Saving model to models/{model}...")
+    recommender.save_model(f"./models/{model}")
     print("Model training and saving completed.")
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_cli()
+    main(args.model)

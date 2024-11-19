@@ -12,11 +12,15 @@ from models.recommender_system import RecommenderSystem
 
 USER_ARTISTS_PATH = './data/user_artists.dat'
 ARTISTS_PATH = './data/artists.dat'
-MODEL_PATH = './models/als_model.pkl'
 
 def parse_cli():
     parser = argparse.ArgumentParser(
         description="Generate recommendations for a user"
+    )
+    parser.add_argument(
+        'model',
+        type=str,
+        help="The name of the model to use"
     )
     parser.add_argument(
         'user_id',
@@ -32,7 +36,7 @@ def parse_cli():
 
     return parser.parse_args()
 
-def main(user_id, n_recommendations=5):
+def main(model, user_id, n_recommendations=5):
     recommender = RecommenderSystem()
 
     # Load data
@@ -40,8 +44,8 @@ def main(user_id, n_recommendations=5):
     recommender.load_data(USER_ARTISTS_PATH, ARTISTS_PATH)
     
     # Load the trained model
-    print("Loading model...")
-    recommender.load_model(MODEL_PATH)
+    print(f"Loading model from models/{model}...")
+    recommender.load_model(f"./models/{model}")
 
     # Get recommendations
     print(f"Generating recommendations for user {user_id}...")
@@ -55,4 +59,4 @@ def main(user_id, n_recommendations=5):
 
 if __name__ == '__main__':
     args = parse_cli()
-    main(args.user_id, n_recommendations=args.n)
+    main(args.model, args.user_id, n_recommendations=args.n)

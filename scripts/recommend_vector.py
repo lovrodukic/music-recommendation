@@ -8,16 +8,20 @@ from models.recommender_vector import RecommenderVector
 
 
 DATA_PATH = './data/music.csv'
-INDEX_PATH = './models/index_transformer'
 
 def parse_cli():
     parser = argparse.ArgumentParser(
         description="Generate recommendations for a seed item"
     )
     parser.add_argument(
+        'index',
+        type=str,
+        help="The name of the index to use"
+    )
+    parser.add_argument(
         'song_id',
         type=int,
-        help="The user ID for which recommendations are generated"
+        help="The song ID for which recommendations are generated"
     )
     parser.add_argument(
         '-n', 
@@ -28,7 +32,7 @@ def parse_cli():
 
     return parser.parse_args()
 
-def main(seed_song_id, n_recommendations=5):
+def main(index, seed_song_id, n_recommendations=5):
     recommender = RecommenderVector()
 
     # Load data
@@ -36,8 +40,8 @@ def main(seed_song_id, n_recommendations=5):
     recommender.load_data(DATA_PATH)
 
     # Load the pre-trained FAISS index
-    print(f"Loading FAISS index from {INDEX_PATH}...")
-    recommender.load_index(INDEX_PATH)
+    print(f"Loading FAISS index from models/{index}...")
+    recommender.load_index(f"./models/{index}")
 
     # Get recommendations
     seed_song = recommender.get_song_by_id(seed_song_id)
@@ -52,4 +56,4 @@ def main(seed_song_id, n_recommendations=5):
 
 if __name__ == '__main__':
     args = parse_cli()
-    main(args.song_id, n_recommendations=args.n)
+    main(args.index, args.song_id, n_recommendations=args.n)

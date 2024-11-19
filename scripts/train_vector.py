@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -7,9 +8,20 @@ from models.recommender_vector import RecommenderVector
 
 
 DATA_PATH = './data/music.csv'
-INDEX_NAME = 'index'
 
-def main():
+def parse_cli():
+    parser = argparse.ArgumentParser(
+        description="Generate recommendations for a seed item"
+    )
+    parser.add_argument(
+        'index',
+        type=str,
+        help="The name of the index to use"
+    )
+
+    return parser.parse_args()
+
+def main(index):
     recommender =  RecommenderVector()
 
     # Load data
@@ -17,11 +29,12 @@ def main():
     recommender.load_data(DATA_PATH)
 
     # Build the FAISS index
-    print("Building FAISS index...")
-    recommender.build_index(INDEX_NAME)
+    print(f"Building FAISS index at models/{index}...")
+    recommender.build_index(index)
 
     print("Training completed successfully.")
 
 
 if __name__ == '__main__':
-    main()
+    args = parse_cli()
+    main(args.index)
