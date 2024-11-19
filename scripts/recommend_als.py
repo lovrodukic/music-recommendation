@@ -52,6 +52,7 @@ def main(user_id, n_recommendations=5):
     for i, (artist, score) in enumerate(zip(recommendations, scores), start=1):
         print(f"{i}. {artist} (Score: {score:.4f})")
 
+
 if __name__ == '__main__':
     args = parse_cli()
     main(args.user_id, n_recommendations=args.n)

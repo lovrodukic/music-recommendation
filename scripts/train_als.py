@@ -26,5 +26,6 @@ def main():
     recommender.save_model(MODEL_PATH)
     print("Model training and saving completed.")
 
+
 if __name__ == '__main__':
     main()
