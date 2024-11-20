@@ -4,7 +4,7 @@ import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from models.recommender_vector import RecommenderVector
+from models.recommender_transformer import RecommenderTransformer
 
 
 DATA_PATH = './data/music.csv'
@@ -33,7 +33,7 @@ def parse_cli():
     return parser.parse_args()
 
 def main(index, seed_song_id, n_recommendations=5):
-    recommender = RecommenderVector()
+    recommender = RecommenderTransformer()
 
     # Load data
     print("Loading data...")

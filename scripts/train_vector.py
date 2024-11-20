@@ -4,10 +4,10 @@ import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from models.recommender_vector import RecommenderVector
+from models.recommender_transformer import RecommenderTransformer
 
 
-DATA_PATH = './data/music.csv'
+DATA_PATH = './data/tracks_features.csv'
 
 def parse_cli():
     parser = argparse.ArgumentParser(
@@ -22,7 +22,7 @@ def parse_cli():
     return parser.parse_args()
 
 def main(index):
-    recommender =  RecommenderVector()
+    recommender =  RecommenderTransformer(use_ollama=True)
 
     # Load data
     print("Loading data...")

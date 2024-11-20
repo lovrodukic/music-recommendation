@@ -7,7 +7,7 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from models.recommender_system import RecommenderSystem
+from models.recommender_model_als import RecommenderModelALS
 
 
 USER_ARTISTS_PATH = './data/user_artists.dat'
@@ -37,7 +37,7 @@ def parse_cli():
     return parser.parse_args()
 
 def main(model, user_id, n_recommendations=5):
-    recommender = RecommenderSystem()
+    recommender = RecommenderModelALS()
 
     # Load data
     print("Loading data...")

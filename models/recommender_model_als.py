@@ -4,7 +4,7 @@ import scipy.sparse as sp
 import pandas as pd
 
 
-class RecommenderSystem:
+class RecommenderModelALS:
     def __init__(self, factors=200, regularization=0.05, iterations=50):
         self.model = als.AlternatingLeastSquares(
             factors=factors,
