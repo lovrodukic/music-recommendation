@@ -4,7 +4,7 @@ import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from models.recommender_model_als import RecommenderModelALS
+from models.RecommenderModelALS import RecommenderModelALS
 
 
 USER_ARTISTS_PATH = './data/user_artists.dat'
