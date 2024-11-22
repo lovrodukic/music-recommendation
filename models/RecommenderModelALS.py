@@ -15,6 +15,7 @@ class RecommenderModelALS:
         self.artists = None
         self.user_item_matrix = None
     
+
     def load_data(self, user_artists_path, artists_path):
         """
         Load user-artist interactions and artist metadata
@@ -37,6 +38,7 @@ class RecommenderModelALS:
         )
         self.user_item_matrix = coo.tocsr()
 
+
     def train(self):
         """
         Train ALS model
@@ -45,6 +47,7 @@ class RecommenderModelALS:
             raise ValueError("User artist matrix not loaded")
 
         self.model.fit(self.user_item_matrix)
+
 
     def recommend(self, user_id, n_recommendations=5):
         """
@@ -67,12 +70,14 @@ class RecommenderModelALS:
 
         return recommendations, scores
 
+
     def save_model(self, file_path):
         """
         Save the trained model to a file
         """
         with open(file_path, 'wb') as model_file:
             pickle.dump(self.model, model_file)
+
 
     def load_model(self, file_path):
         """

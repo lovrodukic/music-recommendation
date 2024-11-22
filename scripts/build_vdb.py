@@ -1,17 +1,17 @@
 import sys
 import os
-import argparse
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.RecommenderVDB import RecommenderVDB
 
 
-DATA_PATH = './data/tracks_features.csv'
+DATA_PATH = './data/dataset.csv'
+
 
 def main():
     recommender = RecommenderVDB(
-        use_ollama=False, use_textual_embeddings=False
+        use_textual_embeddings=False, use_ollama=False
     )
 
     # Load data

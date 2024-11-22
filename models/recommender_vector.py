@@ -16,8 +16,10 @@ class RecommenderVector:
         self.data = None
         self.embeddings = None
 
+
     def get_song_by_id(self, song_id):
         return self.data.iloc[song_id]
+
 
     def load_data(self, data_path):
         """
@@ -37,6 +39,7 @@ class RecommenderVector:
             axis=1
         )
     
+
     def build_index(self, index_name):
         """
         Build the FAISS index using using song textual representations
@@ -68,6 +71,7 @@ class RecommenderVector:
         faiss.write_index(self.faiss_index, f"models/{index_name}")
         print(f"Saved FAISS index to models/{index_name}")
     
+
     def load_index(self, index_file_path):
         """
         Load a previously saved FAISS index
@@ -79,6 +83,7 @@ class RecommenderVector:
             raise ValueError(
                 f"Failed to load FAISS index from '{index_file_path}': {e}"
             )
+
 
     def recommend(self, seed, n_recommendations=5):
         """

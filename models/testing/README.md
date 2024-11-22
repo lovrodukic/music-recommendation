@@ -1,5 +1,6 @@
-# utils/
-This directory contains reference code and utilities for recommendation systems:
+# testing/
+This directory contains reference code and experimentation for recommendation
+systems based on notebook experimentation:
 
 - `recommender_als.py`: Code for Alternating Least Squares (ALS) experimentation
 - `recommender_svd.py`: Code for Singular Value Decomposition (SVD)

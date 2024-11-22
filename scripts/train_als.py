@@ -10,6 +10,7 @@ from models.RecommenderModelALS import RecommenderModelALS
 USER_ARTISTS_PATH = './data/user_artists.dat'
 ARTISTS_PATH = './data/artists.dat'
 
+
 def parse_cli():
     parser = argparse.ArgumentParser(
         description="Generate recommendations for a user"
@@ -21,6 +22,7 @@ def parse_cli():
     )
 
     return parser.parse_args()
+
 
 def main(model):
     recommender = RecommenderModelALS()
