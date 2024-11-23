@@ -1,12 +1,17 @@
-import ast
 import faiss
+import json
 import os
 import requests
+import sys
 import numpy as np
 import pandas as pd
 from collections import defaultdict
 from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import MinMaxScaler
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from models.utils import map_features
 
 
 EMBEDDING_DIM_OLLAMA = 4096
@@ -21,7 +26,7 @@ FEATURE_INDEX_NAME = 'models/index'
 TEXTUAL_INDEX_NAME = 'models/index_embedded'
 ARTISTS_DATA = 'data/artists.dat'
 
-w_n, w_e = 1.0, 0.0234
+w_n, w_e = 1.0, 1.0
 
 
 class RecommenderVDB:
@@ -35,6 +40,8 @@ class RecommenderVDB:
         # Data store and preprocessing
         self.data = None
         self.scaler = MinMaxScaler()
+        with open("models/feature_mappings.json", "r") as f:
+            self.feature_mappings = json.load(f)
 
         # FAISS index configuration
         self.use_ollama = use_ollama
@@ -90,21 +97,6 @@ class RecommenderVDB:
         self.data['artists'] = self.data['artists'].apply(
             lambda a: a.split(';') if isinstance(a, str) else []
         )
-        
-        if self.use_textual_embeddings:
-            def create_textual_representation(row):
-                return (
-                    f"Track: {row['name']},\n"
-                    f"Album: {row['album']},\n"
-                    f"Artists: {row['artists']},\n"
-                    f"Genre: {row['genre']}"
-                )
-            
-            self.data['textual_representation'] = self.data.apply(
-                create_textual_representation,
-                axis=1
-            )
-        
         self.data['tempo'] = self.scaler.fit_transform(
             self.data[['tempo']]
         )
@@ -139,15 +131,44 @@ class RecommenderVDB:
             return self.model.encode(representation)
 
 
+    def _create_textual_representation(self, row):
+        feature_mappings = self.feature_mappings
+
+        if row.name % 1000 == 0:
+            print(f"Created textual representation for {row.name} rows")
+
+        metadata = (
+            f"\nTrack: {row['name']}\n"
+            f"Album: {row['album']}\n"
+            f"Artists: {', '.join(row['artists'])}\n"
+            f"Genre: {row['genre']}\n"
+        )
+
+        feature_phrases = [
+            f"{feature}: "
+            f"{map_features(feature, row[feature], feature_mappings)} "
+            f"({row[feature]:.2f})"
+            for feature in FEATURES
+        ]
+
+        return ', '.join(feature_phrases + [metadata])
+
+
     def _build_textual_index(self, batch_size=1000):
         """
         Build the FAISS index for textual embeddings
         """
         if not self.use_textual_embeddings:
             return
-
+        
+        self.data.reset_index(drop=True, inplace=True)
         num_rows = len(self.data)
         print(f"Building textual index for {num_rows} rows")
+        
+        self.data['textual_representation'] = self.data.apply(
+            self._create_textual_representation,
+            axis=1
+        )
 
         for start_idx in range(0, len(self.data), batch_size):
             end_idx = min(start_idx + batch_size, num_rows)
@@ -245,6 +266,7 @@ class RecommenderVDB:
                 'artists': self.data.iloc[idx].get('artists', None),
                 'name': self.data.iloc[idx].get('name', None),
                 'genre': self.data.iloc[idx].get('genre', None),
+                'popularity': self.data.iloc[idx].get('popularity', None),
             }
             for idx, score in combined_scores.items()
             if self.data.iloc[idx]['id'] != seed_id
@@ -256,6 +278,10 @@ class RecommenderVDB:
         recommended_songs = recommended_songs.sort_values(
             by=['genre_match', 'score'], ascending=[False, False]
         ).drop(columns=['genre_match'])
+
+        # recommended_songs = recommended_songs.sort_values(
+        #     by=['score'], ascending=[False]
+        # )
 
         def cap_songs_per_artist(recommended_songs, max_per_artist=5):
             artist_counts = defaultdict(int)
@@ -290,9 +316,10 @@ class RecommenderVDB:
         if self.use_textual_embeddings:
             if self.textual_index is None or self.textual_index.ntotal == 0:
                 raise ValueError("Textual index is not loaded or empty")
-            
-            if 'textual_representation' not in seed:
-                raise ValueError("Textual representation is missing")
+
+            seed['textual_representation'] = (
+                self._create_textual_representation(seed)
+            )
         
         numerical_features = np.array(
             [seed[feature] for feature in FEATURES]
@@ -302,13 +329,13 @@ class RecommenderVDB:
         D_num, I_num = self.feature_index.search(numerical_features, n_search)
         D_num = D_num.flatten()
         I_num = I_num.flatten()
-        if D_num.max() > 0: D_num = D_num / D_num.max()
 
         # Initialize combined distances and indices
         combined_scores = defaultdict(float)
-        w_n, w_e = 1.0, 1.0
-        for idx, distance in zip(I_num, D_num):
-            combined_scores[idx] = w_n * distance
+
+        if not self.use_textual_embeddings:
+            for idx, distance in zip(I_num, D_num):
+                combined_scores[idx] = w_n * distance
 
         if self.use_textual_embeddings:
             textual_embedding = self._generate_embedding(
@@ -323,7 +350,6 @@ class RecommenderVDB:
             D_text = D_text.flatten()
             I_text = I_text.flatten()
             D_text = 1.0 - D_text
-            if D_text.max() > 0: D_text = D_text / D_text.max()
 
             for idx, distance in zip(I_text, D_text):
                 combined_scores[idx] += w_e * distance
@@ -332,12 +358,15 @@ class RecommenderVDB:
         #     print(f"{score}")
 
         recommended_songs = self._filter(seed, combined_scores)
-
         top_songs = recommended_songs.head(n_recommendations)
         
         # Retrieve song metadata
         recommendations = [
-            {'artists': row['artists'], 'name': row['name']}
+            {
+                'artists': row['artists'],
+                'name': row['name'],
+                'score': row['score']
+             }
             for _, row in top_songs.iterrows()
         ]
 

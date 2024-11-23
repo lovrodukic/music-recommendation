@@ -1,0 +1,57 @@
+{
+  "acousticness": {
+    "high": "highly acoustic with natural sounds",
+    "moderate": "moderately acoustic",
+    "low": "dominated by electronic sounds",
+    "unknown": "acousticness value not available"
+  },
+  "danceability": {
+    "high": "extremely danceable with strong rhythmic regularity",
+    "moderate": "danceable with moderate beat strength",
+    "low": "less danceable, possibly complex or irregular",
+    "unknown": "danceability value not available"
+  },
+  "energy": {
+    "high": "high energy, intense and dynamic",
+    "moderate": "moderate energy with a lively feel",
+    "low": "low energy, calm and subdued",
+    "unknown": "energy value not available"
+  },
+  "instrumentalness": {
+    "high": "primarily instrumental with minimal vocals",
+    "moderate": "largely instrumental with occasional vocals",
+    "low": "dominated by vocal content",
+    "unknown": "instrumentalness value not available"
+  },
+  "liveness": {
+    "high": "strong live performance feel",
+    "moderate": "somewhat live with ambient crowd sounds",
+    "low": "studio-recorded with no live elements",
+    "unknown": "liveness value not available"
+  },
+  "speechiness": {
+    "high": "predominantly spoken words, like a podcast or poetry",
+    "moderate": "a mix of speech and music, such as rap or storytelling",
+    "low": "purely musical with minimal speech",
+    "unknown": "speechiness value not available"
+  },
+  "tempo": {
+    "high": "fast tempo",
+    "moderate": "moderate tempo",
+    "low": "slow tempo",
+    "unknown": "tempo value not available"
+  },
+  "valence": {
+    "high": "extremely positive, cheerful and euphoric",
+    "moderate": "positive with a happy and upbeat tone",
+    "neutral": "neutral with a balanced mood",
+    "somewhat_negative": "somewhat negative, melancholic or somber",
+    "highly_negative": "highly negative, sad or angry",
+    "unknown": "valence value not available"
+  },
+  "mode": {
+    "major": "in a major key, bright and happy",
+    "minor": "in a minor key, dark and somber",
+    "unknown": "mode value not available"
+  }
+}

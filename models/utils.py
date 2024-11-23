@@ -1,4 +1,4 @@
-import ast
+import json
 import pandas as pd
 from typing import List, Tuple
 
@@ -45,3 +45,29 @@ def get_songs_by_artist(artist: str) -> List[Tuple[str, str]]:
     result = result.drop_duplicates(subset='name', keep='first')
     
     return list(result[['id', 'name']].itertuples(index=False, name=None))
+
+
+def map_features(feature: str, value: float, mappings: dict) -> str:
+    """
+    Map numerical features from the dataset to descriptive phrases
+    """
+    mapping = mappings.get(feature, {"unknown": "unknown characteristic"})
+
+    if feature == "mode":
+        return (
+            mapping.get("major", "unknown characteristic")
+            if value == 1 else mapping.get("minor", "unknown characteristic")
+        )
+    
+    if value > 0.8:
+        return mapping.get("high", "unknown characteristic")
+    elif value > 0.6:
+        return mapping.get("moderate", "unknown characteristic")
+    elif feature == "valence" and value > 0.4:
+        return mapping.get("neutral", "unknown characteristic")
+    elif feature == "valence" and value > 0.2:
+        return mapping.get("somewhat_negative", "unknown characteristic")
+    elif feature == "valence":
+        return mapping.get("highly_negative", "unknown characteristic")
+    else:
+        return mapping.get("low", "unknown characteristic")
