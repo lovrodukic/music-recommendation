@@ -10,9 +10,7 @@ DATA_PATH = './data/dataset.csv'
 
 
 def main():
-    recommender = RecommenderVDB(
-        use_textual_embeddings=True, use_ollama=False
-    )
+    recommender = RecommenderVDB(use_ollama=False)
 
     # Load data
     print("Loading data...")

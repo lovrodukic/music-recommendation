@@ -31,9 +31,7 @@ def parse_cli():
 
 
 def main(seed_song_id, n_recommendations=5):
-    recommender = RecommenderVDB(
-        use_textual_embeddings=True, use_ollama=False
-    )
+    recommender = RecommenderVDB(use_ollama=False)
 
     # Load data
     print("Loading data...")

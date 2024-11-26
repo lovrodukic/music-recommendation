@@ -14,60 +14,56 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.utils import map_features
 
 
+# Constants for embedding dimensions and model initialization
 EMBEDDING_DIM_OLLAMA = 4096
 EMBEDDING_DIM_SENTENCE_TRANSFORMER = 384
+MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
+OLLAMA_URL = 'http://localhost:11434/api/embeddings'
 
+# Audio feature columns to use
 FEATURES = [
     'danceability', 'energy', 'mode', 'speechiness', 'acousticness',
     'instrumentalness', 'liveness', 'valence', 'tempo'
 ]
 
-FEATURE_INDEX_NAME = 'models/index'
-TEXTUAL_INDEX_NAME = 'models/index_embedded'
-ARTISTS_DATA = 'data/artists.dat'
-
-w_n, w_e = 1.0, 1.0
+# Path for index data file
+INDEX_NAME = 'models/index_embedded'
 
 
 class RecommenderVDB:
     def __init__(
         self,
-        model_name='sentence-transformers/all-MiniLM-L6-v2',
-        ollama_url='http://localhost:11434/api/embeddings',
+        model_name=MODEL_NAME,
+        ollama_url=OLLAMA_URL,
         use_ollama=False,
-        use_textual_embeddings=False
     ):
+        """
+        Initialize the RecommenderVDB instance
+
+        Parameters:
+        - model_name (str): The name of the sentence transformer model to use
+        - ollama_url (str): The URL for the Ollama embedding service
+        - use_ollama (bool): Whether to use Ollama for generating embeddings
+        """
+
+        # FAISS index configuration
+        self.use_ollama = use_ollama
+        self.ollama_url = ollama_url
+        self.embedding_dim = (
+            EMBEDDING_DIM_OLLAMA if use_ollama else
+            EMBEDDING_DIM_SENTENCE_TRANSFORMER
+        )
+        
+        # Model and FAISS index initialization
+        self.model = SentenceTransformer(model_name) if not use_ollama else None
+        self.index_name = INDEX_NAME
+        self.index = faiss.IndexFlatIP(self.embedding_dim)
+
         # Data store and preprocessing
         self.data = None
         self.scaler = MinMaxScaler()
         with open("models/feature_mappings.json", "r") as f:
             self.feature_mappings = json.load(f)
-
-        # FAISS index configuration
-        self.use_ollama = use_ollama
-        self.use_textual_embeddings = use_textual_embeddings
-        self.ollama_url = ollama_url
-        self.feature_dim = len(FEATURES)
-        self.embedding_dim = (
-            EMBEDDING_DIM_OLLAMA if use_ollama else
-            EMBEDDING_DIM_SENTENCE_TRANSFORMER
-        ) if use_textual_embeddings else 0
-        
-        # Model and indexes
-        self.model = (
-            SentenceTransformer(model_name) if use_textual_embeddings 
-            and not use_ollama else None
-        )
-
-        self.feature_index_name = FEATURE_INDEX_NAME
-        self.feature_index = faiss.IndexFlatL2(self.feature_dim)
-
-        self.textual_index_name = TEXTUAL_INDEX_NAME
-        self.textual_index = (
-            faiss.IndexFlatIP(self.embedding_dim)
-            if self.use_textual_embeddings
-            else None
-        )
 
 
     def get_data_by_id(self, _id):
@@ -105,13 +101,6 @@ class RecommenderVDB:
             missing = set(FEATURES) - set(self.data.columns)
             raise ValueError(f"Missing required numerical features: {missing}")
 
-        # Load popular artists
-        # artists_df = pd.read_csv(ARTISTS_DATA, delimiter='\t')
-        # if 'name' not in artists_df.columns:
-        #     raise ValueError("The 'artists.dat' file must contain a 'name' column.")
-
-        # self.popular_artists = set(artists_df['name'].str.lower().str.strip())
-
 
     def _generate_embedding(self, representation):
         """
@@ -132,6 +121,9 @@ class RecommenderVDB:
 
 
     def _create_textual_representation(self, row):
+        """
+        Create textual representation to use for embedding
+        """
         feature_mappings = self.feature_mappings
 
         if row.name % 1000 == 0:
@@ -158,9 +150,6 @@ class RecommenderVDB:
         """
         Build the FAISS index for textual embeddings
         """
-        if not self.use_textual_embeddings:
-            return
-        
         self.data.reset_index(drop=True, inplace=True)
         num_rows = len(self.data)
         print(f"Building textual index for {num_rows} rows")
@@ -196,25 +185,10 @@ class RecommenderVDB:
                     print(f"Skipping row {start_idx + i} due to error: {e}")
 
             # Add batch embeddings to FAISS index
-            self.textual_index.add(batch_embeddings)
+            self.index.add(batch_embeddings)
         
-        faiss.write_index(self.textual_index, self.textual_index_name)
-        print(f"Textual index saved to {self.textual_index_name}")
-
-
-    def _build_feature_index(self):
-        """
-        Build the FAISS index for numerical audio features
-        """
-        if os.path.exists(self.feature_index_name):
-            print(f"Feature index already exists at {self.feature_index_name}")
-            self.feature_index = faiss.read_index(self.feature_index_name)
-            return
-        
-        print("Building feature index...")
-        features = self.data[FEATURES].values.astype('float32')
-        self.feature_index.add(features)
-        faiss.write_index(self.feature_index, self.feature_index_name)
+        faiss.write_index(self.index, self.index_name)
+        print(f"Textual index saved to {self.index_name}")
 
 
     def build_index(self, batch_size=1000):
@@ -223,66 +197,47 @@ class RecommenderVDB:
         """
         if self.data is None:
             raise ValueError("Data not loaded")
-        
-        # Build numerical index
-        self._build_feature_index()
 
-        # Build textual index if enabled
-        if self.use_textual_embeddings:
+        # Build textual index
+        if not os.path.exists(self.index_name):
             self._build_textual_index(batch_size)
+        else:
+            print(f"Index already exists at {self.index_name}")
 
 
     def load_index(self):
         """
         Loads previously saved FAISS indexes for features and textual embeddings
         """
-        # Load the feature index
-        if os.path.exists(self.feature_index_name):
-            print(f"Loading numerical index from {self.feature_index_name}...")
-            self.feature_index = faiss.read_index(self.feature_index_name)
-            print(f"Numerical index loaded successfully")
+        # Load the textual index
+        if os.path.exists(self.index_name):
+            print(f"Loading textual index from {self.index_name}...")
+            self.index = faiss.read_index(self.index_name)
+            print(f"Textual index loaded successfully")
         else:
-             raise ValueError(f"Numerical index file not found")
-    
-        # Load the textual index if enabled
-        if self.use_textual_embeddings:
-            if os.path.exists(self.textual_index_name):
-                print(
-                    f"Loading textual index from {self.textual_index_name}..."
-                )
-                self.textual_index = faiss.read_index(self.textual_index_name)
-                print(f"Textual index loaded successfully")
-            else:
-                raise ValueError(f"Textual index file not found")
+            raise ValueError(f"Textual index file not found")
 
 
-    def _filter(self, seed, combined_scores):
+    def _filter(self, seed, recommended_songs):
+        """
+        Filter and prioritize recommended songs
+        """
         seed_id = seed['id']
         seed_genre = seed['genre']
-        recommended_songs = pd.DataFrame([
-            {
-                'id': idx,
-                'score': score,
-                'artists': self.data.iloc[idx].get('artists', None),
-                'name': self.data.iloc[idx].get('name', None),
-                'genre': self.data.iloc[idx].get('genre', None),
-                'popularity': self.data.iloc[idx].get('popularity', None),
-            }
-            for idx, score in combined_scores.items()
-            if self.data.iloc[idx]['id'] != seed_id
-        ])
+        
+        recommended_songs = recommended_songs[
+            recommended_songs['id'] != seed_id
+        ].copy()
 
         recommended_songs['genre_match'] = (
             recommended_songs['genre'] == seed_genre
         ).astype(int)
+
         recommended_songs = recommended_songs.sort_values(
-            by=['genre_match', 'score'], ascending=[False, False]
+            by=['genre_match', 'numerical_distance'], ascending=[False, True]
         ).drop(columns=['genre_match'])
 
-        # recommended_songs = recommended_songs.sort_values(
-        #     by=['score'], ascending=[False]
-        # )
-
+        # Limit songs per artist to ensure diversity
         def cap_songs_per_artist(recommended_songs, max_per_artist=5):
             artist_counts = defaultdict(int)
             capped_songs = []
@@ -307,57 +262,43 @@ class RecommenderVDB:
         """
         Recommend songs similar to a given seed
         """
-        if self.feature_index is None or self.feature_index.ntotal == 0:
-            raise ValueError("Feature index is not loader or empty")
-        
         if not set(FEATURES).issubset(seed.keys()):
             raise ValueError(f"Seed is missing some features")
         
-        if self.use_textual_embeddings:
-            if self.textual_index is None or self.textual_index.ntotal == 0:
-                raise ValueError("Textual index is not loaded or empty")
+        if self.index is None or self.index.ntotal == 0:
+            raise ValueError("Textual index is not loaded or empty")
 
-            seed['textual_representation'] = (
-                self._create_textual_representation(seed)
-            )
-        
-        numerical_features = np.array(
+        seed['textual_representation'] = (
+            self._create_textual_representation(seed)
+        )
+
+        textual_embedding = self._generate_embedding(
+            seed['textual_representation']
+        ).reshape(1, -1)
+        textual_embedding /= np.linalg.norm(textual_embedding)
+
+        # Search textual FAISS index
+        D_text, I_text = self.index.search(textual_embedding, n_search)
+        D_text = D_text.flatten()
+        I_text = I_text.flatten()
+        D_text = 1.0 - D_text
+
+        # Get numerical audio features of the seed song
+        numerical_features_seed = np.array(
             [seed[feature] for feature in FEATURES]
         ).reshape(1, -1).astype('float32')
 
-        # Search numerical FAISS index
-        D_num, I_num = self.feature_index.search(numerical_features, n_search)
-        D_num = D_num.flatten()
-        I_num = I_num.flatten()
+        # Compute distances between the numerical features
+        numerical_features_songs = self.data.iloc[I_text][FEATURES].values
+        differences = numerical_features_songs - numerical_features_seed
+        numerical_distances = np.linalg.norm(differences, axis=1)
 
-        # Initialize combined distances and indices
-        combined_scores = defaultdict(float)
+        recommended_songs = self.data.iloc[I_text].copy()
+        recommended_songs['index'] = I_text
+        recommended_songs['textual_distance'] = D_text
+        recommended_songs['numerical_distance'] = numerical_distances
 
-        if not self.use_textual_embeddings:
-            for idx, distance in zip(I_num, D_num):
-                combined_scores[idx] = w_n * distance
-
-        if self.use_textual_embeddings:
-            textual_embedding = self._generate_embedding(
-                seed['textual_representation']
-            ).reshape(1, -1)
-            textual_embedding /= np.linalg.norm(textual_embedding)
-
-            # Search textual FAISS index
-            D_text, I_text = self.textual_index.search(
-                textual_embedding, n_search
-            )
-            D_text = D_text.flatten()
-            I_text = I_text.flatten()
-            D_text = 1.0 - D_text
-
-            for idx, distance in zip(I_text, D_text):
-                combined_scores[idx] += w_e * distance
-
-        # for score in combined_scores.items():
-        #     print(f"{score}")
-
-        recommended_songs = self._filter(seed, combined_scores)
+        recommended_songs = self._filter(seed, recommended_songs)
         top_songs = recommended_songs.head(n_recommendations)
         
         # Retrieve song metadata
@@ -365,7 +306,7 @@ class RecommenderVDB:
             {
                 'artists': row['artists'],
                 'name': row['name'],
-                'score': row['score']
+                'score': row['numerical_distance']
              }
             for _, row in top_songs.iterrows()
         ]
